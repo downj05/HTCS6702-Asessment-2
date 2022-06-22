@@ -155,10 +155,57 @@ class User:
         execute(sql_cmd, values)
 
 
-
 class Service:
-    def __init__(self):
-        pass
+    def __init__(self, row_tuple=(None,None,None)):
+        self.id = row_tuple[0]
+        self.name = row_tuple[1]
+        self.description = row_tuple[2]
+
+    @property
+    def fingerprint(self):
+        row = f'{self.name}{self.description}'
+        print(f"Make combined {row}")
+        fingerprint = sha256(row.encode('ascii'))
+        print(f"Make fingerprint {fingerprint.hexdigest()[0:6]}...")
+        return fingerprint.digest()
+
+    def add(self, signature: bytes, signer: int):
+        """
+        Add service
+        :param signature:
+        :param signer:
+        :return:
+        """
+        sql_cmd = '''INSERT INTO service(serviceName, description, signature, signer) VALUES(?,?,?,?)'''
+        values = (self.name, self.description, signature, signer)
+        execute(sql_cmd, values)
+
+
+class Subscription:
+    def __init__(self, row_tuple=(None, None, None)):
+        self.userID = row_tuple[0]
+        self.serviceID = row_tuple[1]
+        self.date = row_tuple[2]
+
+    @property
+    def fingerprint(self):
+        row = f"{self.userID}{self.serviceID}{self.date}"
+        print(f"Make combined {row}")
+        fingerprint = sha256(row.encode('ascii'))
+        print(f"Make fingerprint {fingerprint.hexdigest()[0:6]}...")
+        return fingerprint.digest()
+
+    def add(self, signature: bytes, signer: int):
+        """
+        Add subscription
+        :param signature:
+        :param signer:
+        :return:
+        """
+        sql_cmd = '''INSERT INTO subscription(userID, serviceID, subsriptionDate, signature, signer) VALUES(?,?,?,?,?)'''
+        values = (self.userID, self.serviceID, self.date, signature, signer)
+        execute(sql_cmd, values)
+
 
 if __name__ == '__main__':
     get_some_rows('users', 3)

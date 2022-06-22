@@ -2,6 +2,8 @@ import requests
 from hashlib import sha256
 import base64
 import rsa
+from time import time as timestamp
+from datetime import datetime
 import os
 
 server_url = 'http://localhost:5000'
@@ -13,14 +15,76 @@ login_url = server_url+'/login'
 info_url = server_url+'/info'
 list_url = server_url+'/list'
 user_url = server_url+'/user'
+service_url = server_url+'/service'
+subscription_url = server_url+'/subscription'
 
 session_id = None
+
+
+def confirmation_input(action: str):
+    """
+    Provide a confirmation box that asks
+    if you want to complete the specified
+    action, user can enter y/n to confirm
+    :param action:
+    :return bool:
+    """
+    # Confirmation loop'
+    while True:
+        confirm = input(f"Are you sure you want to {action}? (y/n):")
+        if confirm.lower() in ['n', 'no']:
+            print("Cancelling...")
+            return False
+        elif confirm.lower() in ['y', 'yes']:
+            return True
+
+
+def add_subscription(session_id):
+    """Ask for subscription information and a confirmation. Takes
+    a fingerprint of the subscription data, signs it with our private
+    key. Send the service data """
+    print("Add a subscription.")
+    userID = input("ID of user subscribing to service:")
+    serviceID = input("Service ID they are subscribing to:")
+    date = int(timestamp())
+    confirmation = confirmation_input(f"add subscription")
+    if confirmation is False:
+        return
+    combined = f'{userID}{serviceID}{date}'
+    fingerprint = sha256(combined.encode('ascii'))
+    signature = encode_bytes(sign(fingerprint.digest(), private_key_file))
+    service_json = {'session_id': session_id, 'userID': userID, 'serviceID': serviceID,
+                    'date': date, 'signature': signature}
+    response = requests.post(subscription_url+'/add', json=service_json)
+    rjson = response.json()
+    if 'SUCCESS' in rjson['type']:
+        print(rjson['message'])
+    else:
+        print(f"Error! {rjson['message']}")
 
 
 def add_service(session_id):
     """Ask for service information and a confirmation. Takes
     a fingerprint of the service data, signs it with our private
     key. Send the service data """
+    print("Add a service.")
+    name = input("Service Name:")
+    description = input("Description:")
+    confirmation = confirmation_input(f"add the {name} service")
+    if confirmation is False:
+        return
+    combined = f'{name}{description}'
+    fingerprint = sha256(combined.encode('ascii'))
+    signature = encode_bytes(sign(fingerprint.digest(), private_key_file))
+    service_json = {'session_id': session_id, 'name': name, 'description': description,
+                    'signature': signature}
+    response = requests.post(service_url+'/add', json=service_json)
+    rjson = response.json()
+    if 'SUCCESS' in rjson['type']:
+        print(rjson['message'])
+    else:
+        print(f"Error! {rjson['message']}")
+
 
 def add_user(session_id):
     """Ask for user information and a confirmation. Takes a
@@ -32,15 +96,9 @@ def add_user(session_id):
     lastname = input("Last Name:")
     email = input("Email Address:")
     city = input("City:")
-    # Confirmation loop
-    while True:
-        confirm = input(f"Are you sure you want to add {firstname} {lastname}? (y/n):")
-        if confirm.lower() in ['n', 'no']:
-            print("Cancelled user creation.")
-            return
-        elif confirm.lower() in ['y', 'yes']:
-            print("Adding user...")
-            break # Leave loop
+    confirmation = confirmation_input(f"add {firstname} {lastname}")
+    if confirmation is False:
+        return
     combined = f'{firstname}{lastname}{email}{city}'
     print(f"Make combined {combined}")
     fingerprint = sha256(combined.encode('ascii'))
@@ -76,6 +134,14 @@ def list_table(session_id, table: str, amount: int):
             print("ID".ljust(8) + '| First Name'.ljust(40) + '| Last Name'.ljust(40) + '| Email'.ljust(32) + '| City')
             for r in rjson['message']:
                 print(f"{r[0]}".ljust(8) + f'| {r[1]}'.ljust(40) + f'| {r[2]}'.ljust(40) + f'| {r[3]}'.ljust(32) + f'| {r[4]}')
+        elif table.lower() == 'service':
+            print("ID".ljust(8) + '| Name'.ljust(40) + '| Description')
+            for r in rjson['message']:
+                print(f"{r[0]}".ljust(8)+f'| {r[1]}'.ljust(40)+f'| {r[2]}')
+        elif table.lower() == 'subscription':
+            print("User ID".ljust(8)+'| Service ID'.ljust(8)+'| Date')
+            for r in rjson['message']:
+                print(f"{r[0]}".ljust(8)+f"| {r[1]}".ljust(8)+f"| {datetime.fromtimestamp(r[2])}")
 
 
 def sign(data: bytes, private_key_path: str):

@@ -14,6 +14,10 @@ if __name__ == '__main__':
             elif cmd[0] == 'add':
                 if cmd[1] == 'user':
                     commands.add_user(session_key)
+                elif cmd[1] == 'service':
+                    commands.add_service(session_key)
+                elif cmd[1] == 'subscription':
+                    commands.add_subscription(session_key)
 
             elif cmd[0] == 'info':
                 commands.info(session_key)
